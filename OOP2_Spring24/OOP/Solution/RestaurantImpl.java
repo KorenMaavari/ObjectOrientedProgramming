@@ -6,23 +6,23 @@ import OOP.Provided.*;
 public class RestaurantImpl implements Comparable<RestaurantImpl> {
     private int m_id;
     private String m_name;
-    private int m_distFromTech;
+    private int m_distanceFromTech;
     private Set<String> m_menu;
-    private Map<HungryStudent, Integer> m_ratings; // Map to store student ratings
+    private Map<HungryStudentImpl, Integer> m_ratings; // Map to store student ratings
 
     public RestaurantImpl(int id, String name, int distFromTech, Set<String> menu) {
         this.m_id = id;
         this.m_name = name;
-        this.m_distFromTech = distFromTech;
+        this.m_distanceFromTech = distFromTech;
         this.m_menu = new HashSet<>(menu); // Koren: check if it is correct
-
+        this.m_ratings = new HashMap<>();
     }
 
     public int distance() {
-        return this.m_distFromTech;
+        return this.m_distanceFromTech;
     }
 
-    public RestaurantImpl rate(HungryStudent s, int r) throws RateRangeException {
+    public RestaurantImpl rate(HungryStudentImpl s, int r) throws RateRangeException {
         if (r < 0 || r > 5) {
             throw new RateRangeException();
         }
@@ -46,7 +46,7 @@ public class RestaurantImpl implements Comparable<RestaurantImpl> {
     }
 
     @Override
-    public boolean  equals(Object o) {
+    public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         RestaurantImpl that = (RestaurantImpl) o;
@@ -68,7 +68,7 @@ public class RestaurantImpl implements Comparable<RestaurantImpl> {
         StringBuilder sb = new StringBuilder();
         sb.append("Restaurant: ").append(this.m_name).append(".\n");
         sb.append("Id: ").append(this.m_id).append(".\n");
-        sb.append("Distance: ").append(this.m_distFromTech).append(".\n");
+        sb.append("Distance: ").append(this.m_distanceFromTech).append(".\n");
         sb.append("Menu: ");
 
         List<String> sortedMenu = new ArrayList<>(this.m_menu);
@@ -82,6 +82,14 @@ public class RestaurantImpl implements Comparable<RestaurantImpl> {
         }
         sb.append(".");
         return sb.toString();
+    }
+
+    public Map<HungryStudentImpl, Integer> getRatings() {
+        return new HashMap<>(this.m_ratings);
+    }
+
+    public String getName() {
+        return this.m_name;
     }
 }
 
