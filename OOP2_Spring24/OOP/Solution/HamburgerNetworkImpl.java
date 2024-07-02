@@ -170,9 +170,24 @@ public class HamburgerNetworkImpl {
         visited.add(s);
         int distance = 0;
         while (!queue.isEmpty() && distance <= t) {
-            // Koren: We should continue from here
-            HungryStudentImpl current = queue.poll();
+            int size = queue.size();
+            for (int i = 0; i < size; i++) {
+                HungryStudentImpl current = queue.poll(); // v := Q.dequeue()
+                // if v is the goal then
+                if (current.favorites().contains(r)) {
+                    return true; // return v
+                }
+                // for all edges from v to w in G.adjacentEdges(v) do
+                for (HungryStudentImpl friend : current.getFriends()) {
+                    if (!visited.contains(friend)) { // if w is not labeled as explored then
+                        queue.add(friend); // Q.enqueue(w)
+                        visited.add(friend); // label w as explored
+                    }
+                }
+            }
+            distance++; // Increment the distance after processing each level of friends
         }
+        return false; // The restaurant is not recommended within t distance
     }
 }
 
