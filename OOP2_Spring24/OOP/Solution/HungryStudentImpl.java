@@ -123,6 +123,10 @@ public class HungryStudentImpl implements Comparable<HungryStudentImpl> {
         sb.append(".");
         return sb.toString();
     }
+
+    public Integer getID() {
+        return this.m_id;
+    }
 }
 
 class UnratedFavoriteRestaurantException extends Exception {}
