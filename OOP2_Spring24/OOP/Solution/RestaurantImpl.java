@@ -3,12 +3,12 @@ package OOP.Solution;
 import java.util.*;
 import OOP.Provided.*;
 
-public class RestaurantImpl implements Comparable<RestaurantImpl> {
+public class RestaurantImpl implements Restaurant {
     private int m_id;
     private String m_name;
     private int m_distanceFromTech;
     private Set<String> m_menu;
-    private Map<HungryStudentImpl, Integer> m_ratings; // Map to store student ratings
+    private Map<HungryStudent, Integer> m_ratings; // Map to store student ratings
 
     public RestaurantImpl(int id, String name, int distFromTech, Set<String> menu) {
         this.m_id = id;
@@ -22,7 +22,7 @@ public class RestaurantImpl implements Comparable<RestaurantImpl> {
         return this.m_distanceFromTech;
     }
 
-    public RestaurantImpl rate(HungryStudentImpl s, int r) throws RateRangeException {
+    public RestaurantImpl rate(HungryStudent s, int r) throws RateRangeException {
         if (r < 0 || r > 5) {
             throw new RateRangeException();
         }
@@ -59,8 +59,9 @@ public class RestaurantImpl implements Comparable<RestaurantImpl> {
     }
 
     @Override
-    public int compareTo(RestaurantImpl other) {
-        return Integer.compare(this.m_id, other.m_id);
+    public int compareTo(Restaurant other) {
+        RestaurantImpl convertedOther = (RestaurantImpl) other;
+        return Integer.compare(this.m_id, convertedOther.m_id);
     }
 
     @Override
@@ -84,12 +85,20 @@ public class RestaurantImpl implements Comparable<RestaurantImpl> {
         return sb.toString();
     }
 
-    public Map<HungryStudentImpl, Integer> getRatings() {
+    public Map<HungryStudent, Integer> getRatings() {
         return new HashMap<>(this.m_ratings);
     }
 
     public String getName() {
         return this.m_name;
+    }
+
+    public int getID() {
+        return this.m_id;
+    }
+
+    public boolean didStudentRate(HungryStudent s) {
+        return this.m_ratings.containsKey(s);
     }
 }
 

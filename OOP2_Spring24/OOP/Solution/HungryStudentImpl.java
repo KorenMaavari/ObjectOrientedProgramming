@@ -3,10 +3,10 @@ package OOP.Solution;
 import java.util.*;
 import OOP.Provided.*;
 
-public class HungryStudentImpl implements Comparable<HungryStudentImpl> {
+public class HungryStudentImpl implements HungryStudent {
     private int m_id;
     private String m_name;
-    private Set<RestaurantImpl> m_favoriteRestaurants;
+    private Set<Restaurant> m_favoriteRestaurants;
     private Set<HungryStudentImpl> m_friends;
 
     public HungryStudentImpl(int id, String name) {
@@ -16,39 +16,41 @@ public class HungryStudentImpl implements Comparable<HungryStudentImpl> {
         this.m_friends = new HashSet<>();
     }
 
-    public HungryStudentImpl favorite(RestaurantImpl restaurant) throws UnratedFavoriteRestaurantException {
-        if (!restaurant.getRatings().containsKey(this)) {
+    public HungryStudentImpl favorite(Restaurant restaurant) throws UnratedFavoriteRestaurantException {
+        RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
+        if (!convertedRestaurant.getRatings().containsKey(this)) {
             throw new UnratedFavoriteRestaurantException();
         }
         this.m_favoriteRestaurants.add(restaurant);
         return this;
     }
 
-    public Set<RestaurantImpl> favorites() {
+    public Set<Restaurant> favorites() {
         return new HashSet<>(this.m_favoriteRestaurants);
     }
 
-    public HungryStudentImpl addFriend(HungryStudentImpl s) throws SameStudentException, ConnectionAlreadyExistsException {
+    public HungryStudentImpl addFriend(HungryStudent s) throws SameStudentException, ConnectionAlreadyExistsException {
         if (this.equals(s)) {
             throw new SameStudentException();
         }
         if (this.m_friends.contains(s)) {
             throw new ConnectionAlreadyExistsException();
         }
-        this.m_friends.add(s);
-        s.m_friends.add(this); // Ensuring bidirectional friendship
+        HungryStudentImpl convertedStudent = (HungryStudentImpl) s;
+        this.m_friends.add(convertedStudent);
+        convertedStudent.m_friends.add(this); // Ensuring bidirectional friendship
         return this;
     }
 
-    public Set<HungryStudentImpl> getFriends() {
+    public Set<HungryStudent> getFriends() {
         return new HashSet<>(this.m_friends);
     }
 
-    public Set<RestaurantImpl> favoritesByRating(int r) {
+    public Set<Restaurant> favoritesByRating(int r) {
         // TreeSet is implemented with element sorting by default
-        Set<RestaurantImpl> result = new TreeSet<>(new Comparator<RestaurantImpl>() { // TreeSet orders it automatically
+        Set<Restaurant> result = new TreeSet<>(new Comparator<Restaurant>() { // TreeSet orders it automatically
             @Override
-            public int compare(RestaurantImpl r1, RestaurantImpl r2) {
+            public int compare(Restaurant r1, Restaurant r2) {
                 int comp = Double.compare(r2.averageRating(), r1.averageRating());
                 if (comp != 0) return comp;
                 comp = Integer.compare(r1.distance(), r2.distance());
@@ -56,18 +58,19 @@ public class HungryStudentImpl implements Comparable<HungryStudentImpl> {
                 return r1.compareTo(r2);
             }
         });
-        for (RestaurantImpl restaurant : this.m_favoriteRestaurants) {
+        for (Restaurant restaurant : this.m_favoriteRestaurants) {
             if (restaurant.averageRating() >= r) {
-                result.add(restaurant);
+                RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
+                result.add(convertedRestaurant);
             }
         }
         return result;
     }
 
-    public Set<RestaurantImpl> favoritesByDist(int r) {
-        Set<RestaurantImpl> result = new TreeSet<>(new Comparator<RestaurantImpl>() {
+    public Set<Restaurant> favoritesByDist(int r) {
+        Set<Restaurant> result = new TreeSet<>(new Comparator<Restaurant>() {
             @Override
-            public int compare(RestaurantImpl r1, RestaurantImpl r2) {
+            public int compare(Restaurant r1, Restaurant r2) {
                 int comp = Integer.compare(r1.distance(), r2.distance());
                 if (comp != 0) return comp;
                 comp = Double.compare(r2.averageRating(), r1.averageRating());
@@ -75,9 +78,10 @@ public class HungryStudentImpl implements Comparable<HungryStudentImpl> {
                 return r1.compareTo(r2);
             }
         });
-        for (RestaurantImpl restaurant : this.m_favoriteRestaurants) {
+        for (Restaurant restaurant : this.m_favoriteRestaurants) {
             if (restaurant.distance() <= r) {
-                result.add(restaurant);
+                RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
+                result.add(convertedRestaurant);
             }
         }
         return result;
@@ -97,8 +101,9 @@ public class HungryStudentImpl implements Comparable<HungryStudentImpl> {
     }
 
     @Override
-    public int compareTo(HungryStudentImpl other) {
-        return Integer.compare(this.m_id, other.m_id);
+    public int compareTo(HungryStudent other) {
+        HungryStudentImpl convertedStudent = (HungryStudentImpl) other;
+        return Integer.compare(this.m_id, convertedStudent.m_id);
     }
 
     @Override
@@ -109,8 +114,9 @@ public class HungryStudentImpl implements Comparable<HungryStudentImpl> {
         sb.append("Favorites: ");
 
         List<String> sortedFavorites = new ArrayList<>();
-        for (RestaurantImpl restaurant : this.m_favoriteRestaurants) {
-            sortedFavorites.add(restaurant.getName());
+        for (Restaurant restaurant : this.m_favoriteRestaurants) {
+            RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
+            sortedFavorites.add(convertedRestaurant.getName());
         }
         Collections.sort(sortedFavorites);
 
