@@ -1,140 +1,167 @@
 package OOP.Solution;
 
+import OOP.Provided.HungryStudent;
+import OOP.Provided.Restaurant;
+
 import java.util.*;
-import OOP.Provided.*;
+import java.util.stream.Collectors;
 
 public class HungryStudentImpl implements HungryStudent {
-    private int m_id;
-    private String m_name;
-    private Set<Restaurant> m_favoriteRestaurants;
-    private Set<HungryStudentImpl> m_friends;
+    private int m_id; // Unique identifier for the student
+    private String m_name; // Name of the student
+    private List<Restaurant> m_favoriteRestaurants; // List of favorite restaurants
+    private Map<Integer, HungryStudent> m_friends; // Map of friends by their IDs
 
+    // Constructor to initialize the student with ID and name
     public HungryStudentImpl(int id, String name) {
         this.m_id = id;
         this.m_name = name;
-        this.m_favoriteRestaurants = new HashSet<>();
-        this.m_friends = new HashSet<>();
+        this.m_favoriteRestaurants = new ArrayList<>();
+        this.m_friends = new TreeMap<>();
     }
 
-    public HungryStudentImpl favorite(Restaurant restaurant) throws UnratedFavoriteRestaurantException {
-        RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
-        if (!convertedRestaurant.getRatings().containsKey(this)) {
-            throw new UnratedFavoriteRestaurantException();
+    @Override
+    public HungryStudent favorite(Restaurant r) throws UnratedFavoriteRestaurantException {
+        // Ensure the restaurant has been rated by this student before adding to favorites
+        if (r instanceof RestaurantImpl) {
+            RestaurantImpl convertedR = (RestaurantImpl) r;
+            if (convertedR.didStudentRate(this)) {
+                if (!m_favoriteRestaurants.contains(r)) {
+                    m_favoriteRestaurants.add(r);
+                }
+                return this;
+            }
         }
-        this.m_favoriteRestaurants.add(restaurant);
-        return this;
+        throw new UnratedFavoriteRestaurantException();
     }
 
-    public Set<Restaurant> favorites() {
-        return new HashSet<>(this.m_favoriteRestaurants);
+    @Override
+    public Collection<Restaurant> favorites() {
+        // Return a copy of the favorite restaurants list
+        return new ArrayList<>(this.m_favoriteRestaurants);
     }
 
-    public HungryStudentImpl addFriend(HungryStudent s) throws SameStudentException, ConnectionAlreadyExistsException {
+    @Override
+    public HungryStudent addFriend(HungryStudent s) throws SameStudentException, ConnectionAlreadyExistsException {
+        // Ensure the student is not adding themselves and that the connection does not already exist
         if (this.equals(s)) {
             throw new SameStudentException();
         }
-        if (this.m_friends.contains(s)) {
+        HungryStudentImpl student = (HungryStudentImpl) s;
+        if (this.m_friends.containsKey(student.m_id)) {
             throw new ConnectionAlreadyExistsException();
         }
-        HungryStudentImpl convertedStudent = (HungryStudentImpl) s;
-        this.m_friends.add(convertedStudent);
-        convertedStudent.m_friends.add(this); // Ensuring bidirectional friendship
+        this.m_friends.put(student.m_id, s);
         return this;
     }
 
+    @Override
     public Set<HungryStudent> getFriends() {
-        return new HashSet<>(this.m_friends);
-    }
-
-    public Set<Restaurant> favoritesByRating(int r) {
-        // TreeSet is implemented with element sorting by default
-        Set<Restaurant> result = new TreeSet<>(new Comparator<Restaurant>() { // TreeSet orders it automatically
+        // Return a sorted set of friends by their IDs
+        Set<HungryStudent> copyOfFriends = new TreeSet<>(new Comparator<HungryStudent>() {
             @Override
-            public int compare(Restaurant r1, Restaurant r2) {
-                int comp = Double.compare(r2.averageRating(), r1.averageRating());
-                if (comp != 0) return comp;
-                comp = Integer.compare(r1.distance(), r2.distance());
-                if (comp != 0) return comp;
-                return r1.compareTo(r2);
+            public int compare(HungryStudent o1, HungryStudent o2) {
+                return Integer.compare(((HungryStudentImpl) o1).getID(), ((HungryStudentImpl) o2).getID());
             }
         });
-        for (Restaurant restaurant : this.m_favoriteRestaurants) {
-            if (restaurant.averageRating() >= r) {
-                RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
-                result.add(convertedRestaurant);
-            }
-        }
-        return result;
+        copyOfFriends.addAll(this.m_friends.values());
+        return copyOfFriends;
     }
 
-    public Set<Restaurant> favoritesByDist(int r) {
-        Set<Restaurant> result = new TreeSet<>(new Comparator<Restaurant>() {
+    @Override
+    public Collection<Restaurant> favoritesByRating(int rLimit) {
+        // Sort the favorite restaurants by rating, then distance, then ID
+        List<Restaurant> sortedList = new ArrayList<>(m_favoriteRestaurants);
+        sortedList.sort(new Comparator<Restaurant>() {
             @Override
             public int compare(Restaurant r1, Restaurant r2) {
-                int comp = Integer.compare(r1.distance(), r2.distance());
-                if (comp != 0) return comp;
-                comp = Double.compare(r2.averageRating(), r1.averageRating());
-                if (comp != 0) return comp;
-                return r1.compareTo(r2);
+                RestaurantImpl restaurantR1 = (RestaurantImpl) r1;
+                RestaurantImpl restaurantR2 = (RestaurantImpl) r2;
+                // Compare by rating in descending order
+                int ratingCompare = Double.compare(r2.averageRating(), r1.averageRating());
+                if (ratingCompare != 0) {
+                    return ratingCompare;
+                }
+                // If ratings are equal, compare by distance in ascending order
+                int distanceCompare = Integer.compare(r1.distance(), r2.distance());
+                if (distanceCompare != 0) {
+                    return distanceCompare;
+                }
+                // If distances are also equal, compare by ID in ascending order
+                return Integer.compare(restaurantR1.getID(), restaurantR2.getID());
             }
         });
-        for (Restaurant restaurant : this.m_favoriteRestaurants) {
-            if (restaurant.distance() <= r) {
-                RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
-                result.add(convertedRestaurant);
+        // Filter restaurants by the given rating limit
+        return sortedList.stream().filter(restaurant -> restaurant.averageRating() >= rLimit).collect(Collectors.toList());
+    }
+
+    @Override
+    public Collection<Restaurant> favoritesByDist(int dLimit) {
+        // Sort the favorite restaurants by distance, then rating, then ID
+        List<Restaurant> sortedList = new ArrayList<>(m_favoriteRestaurants);
+        sortedList.sort(new Comparator<Restaurant>() {
+            @Override
+            public int compare(Restaurant r1, Restaurant r2) {
+                RestaurantImpl restaurantR1 = (RestaurantImpl) r1;
+                RestaurantImpl restaurantR2 = (RestaurantImpl) r2;
+                // Compare by distance in ascending order
+                int distanceCompare = Integer.compare(r1.distance(), r2.distance());
+                if (distanceCompare != 0) {
+                    return distanceCompare;
+                }
+                // If distances are equal, compare by rating in descending order
+                int ratingCompare = Double.compare(r2.averageRating(), r1.averageRating());
+                if (ratingCompare != 0) {
+                    return ratingCompare;
+                }
+                // If ratings are also equal, compare by ID in ascending order
+                return Integer.compare(restaurantR1.getID(), restaurantR2.getID());
             }
-        }
-        return result;
+        });
+        // Filter restaurants by the given distance limit
+        return sortedList.stream().filter(restaurant -> restaurant.distance() <= dLimit).collect(Collectors.toList());
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        HungryStudentImpl that = (HungryStudentImpl) o;
-        return m_id == that.m_id;
+        if (!(o instanceof HungryStudentImpl)) {
+            return false;
+        }
+        HungryStudentImpl otherStudent = (HungryStudentImpl) o;
+        return (otherStudent.m_id == this.m_id);
+    }
+
+    @Override
+    public int compareTo(HungryStudent o) {
+        if (o instanceof HungryStudentImpl) {
+            HungryStudentImpl otherStudent = (HungryStudentImpl) o;
+            return Integer.compare(this.m_id, otherStudent.m_id);
+        } else {
+            throw new IllegalArgumentException();
+        }
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(m_id);
-    }
-
-    @Override
-    public int compareTo(HungryStudent other) {
-        HungryStudentImpl convertedStudent = (HungryStudentImpl) other;
-        return Integer.compare(this.m_id, convertedStudent.m_id);
+        return this.m_id;
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Hungry student: ").append(this.m_name).append(".\n");
-        sb.append("Id: ").append(this.m_id).append(".\n");
-        sb.append("Favorites: ");
-
-        List<String> sortedFavorites = new ArrayList<>();
-        for (Restaurant restaurant : this.m_favoriteRestaurants) {
-            RestaurantImpl convertedRestaurant = (RestaurantImpl) restaurant;
-            sortedFavorites.add(convertedRestaurant.getName());
-        }
-        Collections.sort(sortedFavorites);
-
-        for (int i = 0; i < sortedFavorites.size(); i++) {
-            sb.append(sortedFavorites.get(i));
-            if (i < sortedFavorites.size() - 1) {
-                sb.append(", ");
+        Set<String> stringFavoriteRestaurants = new TreeSet<>();
+        for (Restaurant r : this.m_favoriteRestaurants) {
+            if (r instanceof RestaurantImpl) {
+                RestaurantImpl restaurant = (RestaurantImpl) r;
+                stringFavoriteRestaurants.add(restaurant.getName());
             }
         }
-        sb.append(".");
-        return sb.toString();
+        String favoritesToString = String.join(", ", stringFavoriteRestaurants);
+        return String.format("Hungry student: %s.\nId: %d.\nFavorites: %s.",
+                this.m_name, this.m_id, favoritesToString);
     }
 
-    public Integer getID() {
+    // Getter method for the student ID
+    int getID() {
         return this.m_id;
     }
 }
-
-class UnratedFavoriteRestaurantException extends Exception {}
-class SameStudentException extends Exception {}
-class ConnectionAlreadyExistsException extends Exception {}
