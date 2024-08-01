@@ -2,10 +2,6 @@ package OOP.Solution;
 
 import OOP.Provided.OOPExpectedException;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,7 +38,7 @@ public class OOPExpectedExceptionImpl implements OOPExpectedException {
             return false;
         }
 
-//        // Check expected message are contained in the exception message
+//        // Koren: Check expected message are contained in the exception message
 //        if (expectedMessages.isEmpty()) {
 //            return true;
 //        }
