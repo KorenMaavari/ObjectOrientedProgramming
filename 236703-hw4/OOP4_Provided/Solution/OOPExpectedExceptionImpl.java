@@ -33,17 +33,15 @@ public class OOPExpectedExceptionImpl implements OOPExpectedException {
     }
 
     public boolean assertExpected(Exception e) {
-        // Check that the exception that was thrown, and passed as parameter, is of a type as expected
         if (expectedException != null && !expectedException.isInstance(e)) {
             return false;
         }
 
-//        // Koren: Check expected message are contained in the exception message
-//        if (expectedMessages.isEmpty()) {
-//            return true;
-//        }
-
         String exceptionMessage = e.getMessage();
+        if (exceptionMessage == null) {
+            exceptionMessage = ""; // Consider an empty string if the message is null
+        }
+
         for (String expectedMessage : expectedMessages) {
             if (expectedMessage == null || !exceptionMessage.contains(expectedMessage)) {
                 return false;

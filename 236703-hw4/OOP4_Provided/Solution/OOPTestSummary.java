@@ -16,19 +16,19 @@ public class OOPTestSummary {
                 .count();
     }
 
-    int getNumSuccesses() {
+    public int getNumSuccesses() {
         return getNumOOPTestResult(OOPResult.OOPTestResult.SUCCESS);
     }
 
-    int getNumFailures() {
+    public int getNumFailures() {
         return getNumOOPTestResult(OOPResult.OOPTestResult.FAILURE);
     }
 
-    int getNumExceptionMismatches() {
+    public int getNumExceptionMismatches() {
         return getNumOOPTestResult(OOPResult.OOPTestResult.EXPECTED_EXCEPTION_MISMATCH);
     }
 
-    int getNumErrors() {
+    public int getNumErrors() {
         return getNumOOPTestResult(OOPResult.OOPTestResult.ERROR);
     }
 }

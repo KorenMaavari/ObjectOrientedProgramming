@@ -8,6 +8,7 @@ import OOP.Provided.OOPResult;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -52,131 +53,139 @@ public class OOPUnitCore {
         return runClass(testClass, "");
     }
 
-    /**
-     * Runs test methods in the specified class that match the provided tag.
-     *
-     * @param testClass The class containing test methods.
-     * @param tag The tag to filter test methods.
-     * @return A summary of the test results.
-     */
     public static OOPTestSummary runClass(Class<?> testClass, String tag) {
-        // Validate that the class is a test class by checking the OOPTestClass annotation
         if (testClass == null || !testClass.isAnnotationPresent(OOPTestClass.class)) {
             throw new IllegalArgumentException("Provided class is not a test class");
         }
 
-        // Get the type of test class (ORDERED or UNORDERED)
         OOPTestClass.OOPTestClassType classType = testClass.getAnnotation(OOPTestClass.class).value();
-
-        // Attempt to create a new instance of the test class
         Object testInstance;
         try {
             testInstance = testClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
-            // Return null if the instance cannot be created
+            e.printStackTrace(); // Added logging
             return null;
         }
 
-        // Map to store the results of each test method
         Map<String, OOPResult> testResults = new LinkedHashMap<>();
-
-        // Step 1: Run @OOPSetup methods
+        System.out.println("Running @OOPSetup methods");
         runAnnotatedMethods(testInstance, OOPSetup.class);
 
-        // Step 2: Collect and run test methods based on tag and order
         List<Method> testMethods = new ArrayList<>();
-        for (Method method : testClass.getDeclaredMethods()) {
-            if (method.isAnnotationPresent(OOPTest.class)) {
-                OOPTest testAnnotation = method.getAnnotation(OOPTest.class);
-                // Add method to list if tag matches or is empty
-                if (tag.isEmpty() || testAnnotation.tag().equals(tag)) {
-                    testMethods.add(method);
-                }
-            }
-        }
+        collectTestMethods(testMethods, testClass, tag);
 
-        // Order test methods if the class is ORDERED
         if (classType == OOPTestClass.OOPTestClassType.ORDERED) {
             testMethods.sort(Comparator.comparingInt(m -> m.getAnnotation(OOPTest.class).order()));
         }
 
-        // Step 3: Execute test methods
+        System.out.println("Collected test methods: " + testMethods);
+
         for (Method testMethod : testMethods) {
             String methodName = testMethod.getName();
+            System.out.println("Executing test method: " + methodName);
+            OOPResultImpl result;
+
             try {
-                // Backup state before running before methods
                 Object backupInstance = backupState(testInstance);
 
                 try {
-                    // Run @OOPBefore methods
+                    System.out.println("Running @OOPBefore methods for: " + methodName);
                     runAnnotatedMethodsForTest(testInstance, OOPBefore.class, methodName);
                 } catch (Exception e) {
-                    // Restore state if before methods fail
+                    System.out.println("Exception in @OOPBefore for: " + methodName);
+                    e.printStackTrace();
                     restoreState(testInstance, backupInstance);
-                    throw e;
+                    result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, e.getClass().getName());
+                    System.out.println("ERROR#1\n");
+                    testResults.put(methodName, result);
+                    continue;
                 }
 
-                // Execute the test method
-                testMethod.setAccessible(true);
-                testMethod.invoke(testInstance);
-                // Mark the test as successful if no exception is thrown
-                testResults.put(methodName, new OOPResultImpl(OOPResult.OOPTestResult.SUCCESS, null));
-            } catch (Exception e) {
-                // Handle exceptions and classify results
-                Throwable cause = e.getCause();
-                OOPExpectedException expectedException = getExpectedExceptionField(testInstance);
-                if (expectedException != null) {
-                    if (cause instanceof Exception) {
+                try {
+                    testMethod.setAccessible(true);
+                    testMethod.invoke(testInstance);
+
+                    // Check if an exception was expected but not thrown
+                    OOPExpectedException expectedException = getExpectedExceptionField(testInstance);
+                    if (expectedException != null && expectedException.getExpectedException() != null) {
+                        System.out.println("Expected exception was not thrown for: " + methodName);
+                        result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, expectedException.getExpectedException().getName());
+                        System.out.println("ERROR#2\n");
+                    } else {
+                        System.out.println("Test method succeeded: " + methodName);
+                        result = new OOPResultImpl(OOPResult.OOPTestResult.SUCCESS, null);
+                        System.out.println("SUCCESS#1\n");
+                    }
+                } catch (Exception e) {
+                    Throwable cause = e.getCause();
+                    OOPExpectedException expectedException = getExpectedExceptionField(testInstance);
+
+                    if (expectedException != null && cause instanceof Exception) {
                         Exception exception = (Exception) cause;
                         if (expectedException.assertExpected(exception)) {
-                            testResults.put(methodName, new OOPResultImpl(OOPResult.OOPTestResult.SUCCESS, null));
+                            System.out.println("Expected exception thrown for: " + methodName);
+                            result = new OOPResultImpl(OOPResult.OOPTestResult.SUCCESS, null);
+                            System.out.println("SUCCESS#2\n");
                         } else {
-                            testResults.put(methodName, new OOPResultImpl(OOPResult.OOPTestResult.EXPECTED_EXCEPTION_MISMATCH,
-                                    new OOPExceptionMismatchError(expectedException.getExpectedException(), exception.getClass()).getMessage()));
+                            System.out.println("Expected exception mismatch for: " + methodName);
+                            result = new OOPResultImpl(OOPResult.OOPTestResult.EXPECTED_EXCEPTION_MISMATCH,
+                                    new OOPExceptionMismatchError(expectedException.getExpectedException(), exception.getClass()).getMessage());
+                            System.out.println("MISMATCH#1\n");
                         }
+                    } else if (cause instanceof OOPAssertionFailure) {
+                        System.out.println("Assertion failure in test: " + methodName);
+                        result = new OOPResultImpl(OOPResult.OOPTestResult.FAILURE, cause.getMessage());
+                        System.out.println("FAILURE#1\n");
                     } else {
-                        // Handle cases where the cause is not an Exception
-                        testResults.put(methodName, new OOPResultImpl(OOPResult.OOPTestResult.ERROR, cause.getClass().getName()));
+                        System.out.println("Unexpected error in test: " + methodName);
+                        result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, cause.getClass().getName());
+                        System.out.println("ERROR#3\n");
                     }
-                } else if (cause instanceof OOPAssertionFailure) {
-                    // Mark as failure if an assertion failure occurs
-                    testResults.put(methodName, new OOPResultImpl(OOPResult.OOPTestResult.FAILURE, cause.getMessage()));
-                } else {
-                    // Mark as error for any other exception
-                    testResults.put(methodName, new OOPResultImpl(OOPResult.OOPTestResult.ERROR, cause.getClass().getName()));
                 }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, e.getClass().getName());
+                System.out.println("ERROR#4\n");
             }
 
             try {
-                // Ensure @OOPAfter methods are always run
+                System.out.println("Running @OOPAfter methods for: " + methodName);
                 runAnnotatedMethodsForTest(testInstance, OOPAfter.class, methodName);
             } catch (Exception e) {
-                // If after methods fail, the result should be an error
-                testResults.put(methodName, new OOPResultImpl(OOPResult.OOPTestResult.ERROR, e.getClass().getName()));
+                System.out.println("Exception in @OOPAfter for: " + methodName);
+                e.printStackTrace();
+                result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, e.getClass().getName());
+                System.out.println("ERROR#5\n");
             }
+
+            // Ensure the result is stored in the map with a unique reference
+            testResults.put(methodName, result);
         }
 
-        // Return the summary of test results
+        System.out.println("Test results: " + testResults);
         return new OOPTestSummary(testResults);
     }
 
+
+
     /**
-     * Runs methods annotated with the specified annotation.
+     * Collects test methods based on the provided tag.
      *
-     * @param instance The instance of the test class.
-     * @param annotation The annotation to look for.
+     * @param testMethods The list to store collected test methods.
+     * @param testClass The class containing test methods.
+     * @param tag The tag to filter test methods.
      */
-    private static void runAnnotatedMethods(Object instance, Class<? extends Annotation> annotation) {
-        // Traverse the class hierarchy to find and run annotated methods
-        Class<?> clazz = instance.getClass();
+    private static void collectTestMethods(List<Method> testMethods, Class<?> testClass, String tag) {
+        // Traverse the class hierarchy to collect test methods
+        Class<?> clazz = testClass;
         while (clazz != null) {
             for (Method method : clazz.getDeclaredMethods()) {
-                if (method.isAnnotationPresent(annotation)) {
-                    try {
-                        method.setAccessible(true);
-                        method.invoke(instance);
-                    } catch (Exception ignored) {
-                        // Koren: what should we do in this case?
+                if (method.isAnnotationPresent(OOPTest.class)) {
+                    OOPTest testAnnotation = method.getAnnotation(OOPTest.class);
+                    // Add method to list if tag matches or is empty
+                    if (tag.isEmpty() || testAnnotation.tag().equals(tag)) {
+                        testMethods.add(method);
                     }
                 }
             }
@@ -184,28 +193,33 @@ public class OOPUnitCore {
         }
     }
 
-    /**
-     * Runs methods annotated with the specified annotation for a specific test method.
-     *
-     * @param instance The instance of the test class.
-     * @param annotation The annotation to look for.
-     * @param testName The name of the test method.
-     */
     private static void runAnnotatedMethodsForTest(Object instance, Class<? extends Annotation> annotation, String testName) {
-        // Traverse the class hierarchy to find and run annotated methods for the specific test
         Class<?> clazz = instance.getClass();
         while (clazz != null) {
             for (Method method : clazz.getDeclaredMethods()) {
                 if (method.isAnnotationPresent(annotation)) {
                     try {
-                        // Get the value of the annotation which contains the test method names
                         String[] relatedTests = (String[]) method.getAnnotation(annotation).annotationType().getMethod("value").invoke(method.getAnnotation(annotation));
                         if (Arrays.asList(relatedTests).contains(testName)) {
+                            System.out.println("Running " + annotation.getSimpleName() + " method: " + method.getName() + " for test: " + testName);
                             method.setAccessible(true);
                             method.invoke(instance);
                         }
-                    } catch (Exception ignored) {
-                        // Koren: what should we do in this case?
+                    } catch (Exception e) {
+                        e.printStackTrace(); // Added logging
+                        if (annotation == OOPBefore.class) {
+                            try {
+                                throw e;
+                            } catch (IllegalAccessException ex) {
+                                throw new RuntimeException(ex);
+                            } catch (InvocationTargetException ex) {
+                                throw new RuntimeException(ex);
+                            } catch (NoSuchMethodException ex) {
+                                throw new RuntimeException(ex);
+                            }
+                        } else {
+                            throw new RuntimeException(e);
+                        }
                     }
                 }
             }
@@ -213,72 +227,41 @@ public class OOPUnitCore {
         }
     }
 
-    /**
-     * Retrieves the OOPExpectedException field from the test instance.
-     *
-     * This method traverses the class hierarchy to find a field annotated with
-     * @OOPExceptionRule, which indicates that the field is an instance of OOPExpectedException.
-     * It returns the value of this field if found, or null otherwise.
-     *
-     * @param instance The instance of the test class.
-     * @return The OOPExpectedException field, or null if not found.
-     */
-    private static OOPExpectedException getExpectedExceptionField(Object instance) {
-        // Start with the class of the given instance
+    private static void runAnnotatedMethods(Object instance, Class<? extends Annotation> annotation) {
         Class<?> clazz = instance.getClass();
-
-        // Traverse the class hierarchy
         while (clazz != null) {
-            // Iterate over all declared fields of the current class
-            for (Field field : clazz.getDeclaredFields()) {
-                // Check if the field is annotated with @OOPExceptionRule
-                if (field.isAnnotationPresent(OOPExceptionRule.class)) {
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (method.isAnnotationPresent(annotation)) {
                     try {
-                        // Make the field accessible if it is private
-                        field.setAccessible(true);
-                        // Return the value of the field if it is an OOPExpectedException
-                        return (OOPExpectedException) field.get(instance);
-                    } catch (IllegalAccessException ignored) {
-                        // If we cannot access the field, ignore the exception and continue
+                        System.out.println("Running " + annotation.getSimpleName() + " method: " + method.getName());
+                        method.setAccessible(true);
+                        method.invoke(instance);
+                    } catch (Exception e) {
+                        e.printStackTrace(); // Added logging
                     }
                 }
             }
-            // Move to the superclass to continue searching
             clazz = clazz.getSuperclass();
         }
-        // Return null if no field annotated with @OOPExceptionRule is found
-        return null;
     }
 
-    /**
-     * Backs up the state of the instance.
-     *
-     * @param instance The instance of the test class.
-     * @return A backup of the instance state.
-     * @throws Exception If an error occurs during backup.
-     */
     private static Object backupState(Object instance) throws Exception {
-        // Create a new instance to hold the backup
         Class<?> clazz = instance.getClass();
         Object backupInstance = clazz.getDeclaredConstructor().newInstance();
 
-        // Traverse the class hierarchy to back up fields
         while (clazz != null) {
             for (Field field : clazz.getDeclaredFields()) {
                 field.setAccessible(true);
                 Object value = field.get(instance);
                 if (value != null) {
-                    // Try to clone the field value if it implements Cloneable
                     if (value instanceof Cloneable) {
                         Method cloneMethod = value.getClass().getMethod("clone");
                         field.set(backupInstance, cloneMethod.invoke(value));
                     } else {
-                        // Try to use a copy constructor if available
                         try {
                             Constructor<?> copyConstructor = value.getClass().getConstructor(value.getClass());
                             field.set(backupInstance, copyConstructor.newInstance(value));
                         } catch (NoSuchMethodException e) {
-                            // If neither clone nor copy constructor are available, use the original value
                             field.set(backupInstance, value);
                         }
                     }
@@ -291,13 +274,6 @@ public class OOPUnitCore {
         return backupInstance;
     }
 
-    /**
-     * Restores the state of the instance from the backup.
-     *
-     * @param instance The instance of the test class.
-     * @param backupInstance The backup instance to restore from.
-     * @throws Exception If an error occurs during restoration.
-     */
     private static void restoreState(Object instance, Object backupInstance) throws Exception {
         Class<?> clazz = instance.getClass();
         while (clazz != null) {
@@ -307,5 +283,22 @@ public class OOPUnitCore {
             }
             clazz = clazz.getSuperclass();
         }
+    }
+
+    private static OOPExpectedException getExpectedExceptionField(Object instance) {
+        Class<?> clazz = instance.getClass();
+        while (clazz != null) {
+            for (Field field : clazz.getDeclaredFields()) {
+                if (field.isAnnotationPresent(OOPExceptionRule.class)) {
+                    try {
+                        field.setAccessible(true);
+                        return (OOPExpectedException) field.get(instance);
+                    } catch (IllegalAccessException ignored) {
+                    }
+                }
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return null;
     }
 }
