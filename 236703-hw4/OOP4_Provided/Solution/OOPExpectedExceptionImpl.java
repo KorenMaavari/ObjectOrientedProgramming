@@ -22,18 +22,21 @@ public class OOPExpectedExceptionImpl implements OOPExpectedException {
     }
 
 
+    @Override
     public OOPExpectedException expect(Class<? extends Exception> expected) {
         this.expectedException = expected;
         return this;
     }
 
+    @Override
     public OOPExpectedException expectMessage(String msg) {
         this.expectedMessages.add(msg);
         return this;
     }
 
+    @Override
     public boolean assertExpected(Exception e) {
-        if (expectedException != null && !expectedException.isInstance(e)) {
+        if (expectedException == null || !expectedException.isInstance(e)) {
             return false;
         }
 

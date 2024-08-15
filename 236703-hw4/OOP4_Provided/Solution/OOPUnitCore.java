@@ -96,7 +96,6 @@ public class OOPUnitCore {
                     e.printStackTrace();
                     restoreState(testInstance, backupInstance);
                     result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, e.getClass().getName());
-                    System.out.println("ERROR#1\n");
                     testResults.put(methodName, result);
                     continue;
                 }
@@ -110,11 +109,9 @@ public class OOPUnitCore {
                     if (expectedException != null && expectedException.getExpectedException() != null) {
                         System.out.println("Expected exception was not thrown for: " + methodName);
                         result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, expectedException.getExpectedException().getName());
-                        System.out.println("ERROR#2\n");
                     } else {
                         System.out.println("Test method succeeded: " + methodName);
                         result = new OOPResultImpl(OOPResult.OOPTestResult.SUCCESS, null);
-                        System.out.println("SUCCESS#1\n");
                     }
                 } catch (Exception e) {
                     Throwable cause = e.getCause();
@@ -125,28 +122,23 @@ public class OOPUnitCore {
                         if (expectedException.assertExpected(exception)) {
                             System.out.println("Expected exception thrown for: " + methodName);
                             result = new OOPResultImpl(OOPResult.OOPTestResult.SUCCESS, null);
-                            System.out.println("SUCCESS#2\n");
                         } else {
                             System.out.println("Expected exception mismatch for: " + methodName);
                             result = new OOPResultImpl(OOPResult.OOPTestResult.EXPECTED_EXCEPTION_MISMATCH,
                                     new OOPExceptionMismatchError(expectedException.getExpectedException(), exception.getClass()).getMessage());
-                            System.out.println("MISMATCH#1\n");
                         }
                     } else if (cause instanceof OOPAssertionFailure) {
                         System.out.println("Assertion failure in test: " + methodName);
                         result = new OOPResultImpl(OOPResult.OOPTestResult.FAILURE, cause.getMessage());
-                        System.out.println("FAILURE#1\n");
                     } else {
                         System.out.println("Unexpected error in test: " + methodName);
                         result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, cause.getClass().getName());
-                        System.out.println("ERROR#3\n");
                     }
                 }
 
             } catch (Exception e) {
                 e.printStackTrace();
                 result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, e.getClass().getName());
-                System.out.println("ERROR#4\n");
             }
 
             try {
@@ -156,7 +148,6 @@ public class OOPUnitCore {
                 System.out.println("Exception in @OOPAfter for: " + methodName);
                 e.printStackTrace();
                 result = new OOPResultImpl(OOPResult.OOPTestResult.ERROR, e.getClass().getName());
-                System.out.println("ERROR#5\n");
             }
 
             // Ensure the result is stored in the map with a unique reference
